@@ -94,8 +94,8 @@ assert_contains scripts/lib/install-helpers.sh 'sudo apt install nodejs npm curl
 # Anchored guards: assert executable code lines, not comment prose, so a
 # removed guard actually fails the smoke run even when the explanatory
 # comment keeps the words. (rg patterns: avoid unescaped regex metachars.)
-assert_contains scripts/lib/asar-patch.sh '^        "npx is required to patch app\.asar with enabled feature descriptors'
-assert_contains scripts/lib/install-helpers.sh '^    if ! command -v npx &>/dev/null; then$'
+assert_contains scripts/lib/asar-patch.sh '^        command -v npx >/dev/null 2>&1 \|\| error'
+assert_contains scripts/lib/install-helpers.sh '^    if \[ -z "\$\{CODEX_ASAR_BIN:-\}" \] && ! command -v npx &>/dev/null; then$'
 
 selector_fixture="$(mktemp -d)"
 trap 'rm -rf -- "$selector_fixture"' EXIT
