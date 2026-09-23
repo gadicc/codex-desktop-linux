@@ -74,7 +74,7 @@ function sha256(contents) {
 
 function currentBundleFixture() {
   return [
-    "var CurrentWatcher=class{runsInsideWsl;hostConfig={id:`local`," +
+    "var CurrentWatcher=class{runsInsideWsl;workspaceRoot=new WorkspaceRoot(this);hostConfig={id:`local`," +
       "display_name:`Local`,kind:`local`};id=`local`;isLocal=!0;",
     "async platformPath(){return x}",
     "getFileSystemPath(e){return e}",
@@ -87,9 +87,8 @@ function currentBundleFixture() {
   ].join("");
 }
 
-// Exact relevant fragments from OpenAI Desktop 26.901.20858. Keep these
-// independent of patch.js so drift in the production contract cannot silently
-// rewrite the test fixture into a passing shape.
+// Representative 26.917.61114 contract fragments stay independent of patch.js
+// so production matcher drift cannot silently rewrite them into a passing shape.
 const CURRENT_WORKER_LOCAL_FILE_WATCH = [
   "async startFileWatch(e){let t=oV(),n=!1,r=await this.platformPath(),",
   "i=(0,w.watch)(this.getFileSystemPath(e.path),{recursive:e.recursive},(t,n)=>{",
@@ -152,7 +151,7 @@ const CURRENT_GIT_ROUTE_SUFFIX = "}}}case`open-in`:";
 
 function currentWorkerSource(route = CURRENT_PARCEL_ROUTE) {
   return [
-    "var Que=class{runsInsideWsl;hostConfig={id:`local`,display_name:`Local`," +
+    "var Que=class{runsInsideWsl;workspaceRoot=new WorkspaceRoot(this);hostConfig={id:`local`,display_name:`Local`," +
       "kind:`local`};id=`local`;isLocal=!0;",
     CURRENT_WORKER_LOCAL_FILE_WATCH,
     "};var CurrentWorkerRemote=class{",
@@ -171,7 +170,7 @@ function currentSrcSource() {
   return [
     "var CurrentSrcRemote=class{",
     CURRENT_SRC_REMOTE_FILE_WATCH,
-    "};var are=class{runsInsideWsl;hostConfig={id:`local`,display_name:`Local`," +
+    "};var are=class{runsInsideWsl;workspaceRoot=new WorkspaceRoot(this);hostConfig={id:`local`,display_name:`Local`," +
       "kind:`local`};id=`local`;isLocal=!0;",
     CURRENT_SRC_LOCAL_FILE_WATCH,
     "};",
@@ -280,7 +279,7 @@ test("the worker patch injects one Watchbound adapter and is idempotent", () => 
     settings,
   );
   assert.equal(legacy.matched, 0);
-  assert.match(legacy.reason, /current 26\.901\.20858 working-tree contract rejected/iu);
+  assert.match(legacy.reason, /current 26\.917\.61114 working-tree contract rejected/iu);
 });
 
 test("the current OpenAI Parcel route hands the working tree to the Watchbound host", () => {
@@ -344,7 +343,8 @@ test("correlates minified aliases instead of pinning their spellings", () => {
   const worker = currentWorkerSource(parcelRoute)
     .replace(CURRENT_PARCEL_HELPER, parcelHelper)
     .replace(CURRENT_GIT_ROUTE_PREFIX, gitRoutePrefix)
-    .replace("var Que=class{", "var LocalHost=class{");
+    .replace("var Que=class{", "var LocalHost=class{")
+    .replace("workspaceRoot=new WorkspaceRoot(this);", "workspaceRoot=new RootAdapter(this);");
 
   const first = patchWorkerSource(worker, normalizedSettings());
   assert.equal(first.matched, 1);
@@ -371,7 +371,7 @@ test("feature patch reports drift instead of patching an ambiguous bundle", () =
 
   assert.equal(result.matched, 0);
   assert.equal(result.changed, 0);
-  assert.match(result.reason, /current 26\.901\.20858 working-tree contract rejected/iu);
+  assert.match(result.reason, /current 26\.917\.61114 working-tree contract rejected/iu);
   const descriptor = descriptors.find(({ id }) => id === "worker-directory-watch");
   assert.equal(descriptor.status(result, []).status, "skipped-optional");
 });
@@ -526,7 +526,7 @@ test("bundle discovery rejects copies outside the current src and worker pair", 
   assert.match(result.reason, /Found 3 current local startFileWatch bundles/u);
 });
 
-test("patches the pristine 26.901.20858 bundle contract and accepts only its exact completed state", (t) => {
+test("patches the pristine 26.917.61114 bundle contract and accepts only its exact completed state", (t) => {
   const candidate = currentBundlePair(t, {
     extra: { "unrelated.js": "const unrelatedWatch=host.startFileWatch(options);" },
   });
@@ -564,7 +564,7 @@ test("patches the pristine 26.901.20858 bundle contract and accepts only its exa
   assert.deepEqual(readBundlePair(candidate), completed);
 });
 
-test("rejects markers outside the exact 26.901.20858 Watchbound handoff", (t) => {
+test("rejects markers outside the exact 26.917.61114 Watchbound handoff", (t) => {
   const unmarkedHandoff = CURRENT_WATCHBOUND_ROUTE.replace(
     `/*${PARCEL_WATCH_MARKER}*/`,
     "",
@@ -632,6 +632,13 @@ test("rejects dual ownership, unrelated lookalikes, and unproven minified aliase
       name: "an uncorrelated local host alias",
       worker: currentWorkerSource(
         CURRENT_PARCEL_ROUTE.replace(":e.startFileWatch(n)", ":other.startFileWatch(n)"),
+      ),
+    },
+    {
+      name: "a local host missing the current workspaceRoot field",
+      worker: currentWorkerSource().replace(
+        "workspaceRoot=new WorkspaceRoot(this);",
+        "",
       ),
     },
     {
@@ -1172,7 +1179,7 @@ const QUALIFIED_ELECTRON_VERSION = "42.3.0";
 function writeExtractedAppRuntime(extractedDir, electron = QUALIFIED_ELECTRON_VERSION) {
   writeJson(path.join(extractedDir, "package.json"), {
     name: "openai-codex-electron",
-    version: "26.901.20858",
+    version: "26.917.61114",
     devDependencies: { electron },
   });
 }
